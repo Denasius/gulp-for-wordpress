@@ -1,69 +1,47 @@
-var themename = 'ravens';
+//'use strict';
 
-var gulp = require('gulp'),
-	// Prepare and optimize code etc
-	autoprefixer = require('autoprefixer'),
-	browserSync = require('browser-sync').create(),
-	image = require('gulp-image'),
-	jshint = require('gulp-jshint'),
-	postcss = require('gulp-postcss'),
-	sass = require('gulp-sass'),
-	sourcemaps = require('gulp-sourcemaps'),
+const dir = {
+        build: './ravens/'
+    },
+    gulp = require('gulp'),
+    concat = require('gulp-concat'),
+    sass = require('gulp-sass'),
+    autoprefixer = require('gulp-autoprefixer'),
+    cleanCSS = require('gulp-clean-css'),
+    uglify = require('gulp-uglify'),
+    cache = require('gulp-cache'),
+    cssnano = require('gulp-cssnano'),
+    rename = require('gulp-rename'),
+    browserSync = require('browser-sync').create(),
+    cleanCss = require('gulp-clean-css');
 
-	// Only work with new or updated files
-	newer = require('gulp-newer'),
+styles = () => {
+    return gulp.src("./sass/*.scss")
+        .pipe(sass())
+        .pipe(concat('styles.css'))
+        .pipe(autoprefixer({browsers: ['last 7 versions'], cascade: true}))
+        .pipe(cssnano()) 
+        .pipe(rename({suffix: '.min'}))
+        .pipe(cleanCss())
+        .pipe(gulp.dest(dir.build + "assets/css"))
+        .pipe(browserSync.stream());
+},
 
-	// Name of working theme folder
-	root = '../' + themename + '/',
-	scss = root + 'assets/sass/',
-	js = root + 'assest/js/',
-	img = root + 'assets/img/',
-	languages = root + 'assets/languages/';
+    watch = () => {
+        browserSync.init({
+            proxy: "http://7-ravens.pf.by/",
+            notify: true
+        });
 
-// CSS via Sass and Autoprefixer
-gulp.task('css', function() {
-	return gulp.src(scss + '{style.scss,rtl.scss}')
-	.pipe(sourcemaps.init())
-	.pipe(sass({
-		outputStyle: 'expanded', 
-		indentType: 'tab',
-		indentWidth: '1'
-	}).on('error', sass.logError))
-	.pipe(postcss([
-		autoprefixer('last 2 versions', '> 1%')
-	]))
-	.pipe(sourcemaps.write(scss + 'maps'))
-	.pipe(gulp.dest(root + 'assets/css/style.min.css'));
+        gulp.watch('./sass/*.scss', styles);
+        gulp.watch("./**/*.php").on('change', browserSync.reload);
+        gulp.watch("./**/*.js").on('change', browserSync.reload);
+    };
+
+gulp.task('styles', styles);
+gulp.task('watch', watch);
+gulp.task('clearcache', function () {
+    return cache.clearAll();
 });
 
-// Optimize images through gulp-image
-gulp.task('images', function() {
-	return gulp.src(img + 'RAW/**/*.{jpg,JPG,png}')
-	.pipe(newer(img))
-	.pipe(image())
-	.pipe(gulp.dest(img));
-});
-
-// JavaScript
-gulp.task('javascript', function() {
-	return gulp.src([js + '*.js'])
-	.pipe(jshint())
-	.pipe(jshint.reporter('default'))
-	.pipe(gulp.dest(js + 'custom.js'));
-});
-
-// Watch everything
-gulp.task('watch', function() {
-    browserSync.init({ 
-        open: 'external',
-        proxy: '7-ravens.pf.by',
-        port: 8080
-    });
-    gulp.watch([root + 'assets/css/**/*.css', root + 'assets/sass/**/*.scss' ], gulp.series('css'));
-    gulp.watch(js + '**/*.js', gulp.series('javascript'));
-    gulp.watch(img + 'RAW/**/*.{jpg,JPG,png}', gulp.series('images'));
-    gulp.watch(root + '**/*').on('change', browserSync.reload);
-});
-
-// Default task (runs at initiation: gulp --verbose)
-gulp.task('default', gulp.series('watch'));
+gulp.task('default', gulp.parallel('styles', 'watch', 'clearcache'));
